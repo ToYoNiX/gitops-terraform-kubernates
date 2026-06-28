@@ -15,7 +15,10 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 ├── terraform/                # (planned) AWS infrastructure as code
 ├── kubernetes/               # (planned) K8s manifests for all services
 ├── .github/workflows/        # (planned) CI/CD, SAST, DAST, linting workflows
-└── docker-compose.yml        # Local dev: spins up Postgres + backend + frontend
+├── docker-compose.yml        # Local dev: spins up Postgres + backend + frontend
+├── MEMORY.md                 # Project context for humans and agents
+├── NOTES.md                  # Lessons learned, technical decisions, gotchas
+└── README.md                 # Project overview, DEPI metadata, team
 ```
 
 ## Application
@@ -29,7 +32,7 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 ## Tech stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | Angular 17, Angular Material, TypeScript |
 | Backend | Spring Boot 3.2, Spring Data JPA, Bean Validation |
 | Database | PostgreSQL 16 (H2 for tests only) |
@@ -43,9 +46,9 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 docker compose up --build
 ```
 
-- Frontend: http://localhost:80
-- Backend API: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger-ui.html
+- Frontend: <http://localhost:80>
+- Backend API: <http://localhost:8080>
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
 - Postgres: localhost:5432 / db: inventory / user: postgres / pass: postgres
 
 ## Backend API
@@ -53,7 +56,7 @@ docker compose up --build
 Base URL: `/api/products`
 
 | Method | Path | Description |
-|---|---|---|
+| --- | --- | --- |
 | GET | `/api/products` | List all (supports `?search=`, `?category=`, `?status=`) |
 | GET | `/api/products/{id}` | Get by ID |
 | POST | `/api/products` | Create product |
@@ -66,7 +69,7 @@ Base URL: `/api/products`
 All credentials are injected via environment variables — map these to Kubernetes secrets:
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `DB_HOST` | `localhost` | Postgres host |
 | `DB_PORT` | `5432` | Postgres port |
 | `DB_NAME` | `inventory` | Database name |
@@ -98,7 +101,7 @@ Every commit — whether from a human or an agent — must follow this format:
 ### Types
 
 | Type | When to use |
-|---|---|
+| --- | --- |
 | `feat` | A new feature or capability |
 | `fix` | A bug fix |
 | `infra` | Terraform, Kubernetes, or Docker changes |
@@ -112,7 +115,7 @@ Every commit — whether from a human or an agent — must follow this format:
 ### Scopes
 
 | Scope | Maps to |
-|---|---|
+| --- | --- |
 | `backend` | `backend/` |
 | `frontend` | `frontend/` |
 | `k8s` | `kubernetes/` |
@@ -167,3 +170,5 @@ security(backend): upgrade spring-boot to 3.2.5 — CVE-2024-XXXX
 - **Angular Material**: professional UI out of the box, minimal custom CSS required
 - **Env-var-driven config**: no secrets hardcoded anywhere; ready for Kubernetes Secrets injection
 - **Status auto-computation**: the service layer derives stock status from quantity — no manual status field exposed to the frontend form
+- **nginx:alpine-slim over nginx:alpine**: frontend final stage uses `nginx:alpine-slim` (21.8MB vs 93.9MB) — strips bash, apk, and unused modules while keeping static serving, `try_files`, and `proxy_pass`
+- **jlink custom JRE for backend**: 3-stage build uses `jdeps` + `jlink` to assemble a minimal JRE with only the modules Spring Boot actually imports (204MB vs 355MB). GraalVM native-image was tried and reverted — produced a larger image (244MB) with 15+ min build time for this stack

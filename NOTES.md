@@ -6,7 +6,14 @@ Running log of technical decisions, discoveries, and fixes made during developme
 
 ## Docker Image Optimisation
 
-### Frontend: 93.9MB → 21.8MB (77% reduction)
+| Image | Before | After | Saving |
+| --- | --- | --- | --- |
+| Frontend (disk) | 93.9MB | 21.8MB | 77% |
+| Frontend (compressed) | 26.2MB | 5.99MB | 77% |
+| Backend (disk) | 355MB | 204MB | 43% |
+| Backend (compressed) | 115MB | 86.3MB | 25% |
+
+### Frontend: 93.9MB → 21.8MB
 
 **What changed:** Switched the final stage base image in [frontend/Dockerfile](frontend/Dockerfile) from `nginx:alpine` to `nginx:alpine-slim`.
 
@@ -20,13 +27,6 @@ FROM nginx:alpine-slim
 
 **Why it worked:** `nginx:alpine` bundles bash, apk, and extra modules we never use. `nginx:alpine-slim` strips all of that and keeps only the core HTTP engine. Our `nginx.conf` only uses three features — static file serving, `try_files` (Angular SPA routing), and `proxy_pass` (API proxying to backend) — all of which are present in both images.
 
-| Image | Disk | Compressed |
-| --- | --- | --- |
-| Frontend (before) | 93.9MB | 26.2MB |
-| Frontend (after) | 21.8MB | 5.99MB |
-| Backend (before) | 355MB | 115MB |
-| Backend (after) | 204MB | 86.3MB |
-
 **Lesson:** Always question the default base image. `nginx:alpine` is the go-to in tutorials but `nginx:alpine-slim` is the right choice when you're not using extra modules.
 
 ---
@@ -35,9 +35,9 @@ FROM nginx:alpine-slim
 
 Both Dockerfiles use multi-stage builds to keep the final image lean.
 
-**Frontend** — Stage 1: Node.js compiles Angular → Stage 2: Nginx serves the compiled `/dist`. Node.js and `node_modules` (~500MB) are discarded entirely.
+**Frontend** (2 stages) — Stage 1: Node.js compiles Angular → Stage 2: `nginx:alpine-slim` serves the compiled `/dist`. Node.js and `node_modules` (~500MB) are discarded entirely.
 
-**Backend** — Stage 1: Maven + JDK builds the fat JAR → Stage 2: JRE-only image runs it. Maven, the JDK, and the local `.m2` cache are discarded.
+**Backend** (3 stages) — Stage 1: Maven + JDK builds the fat JAR → Stage 2: `eclipse-temurin:17-jdk-alpine` runs `jdeps` + `jlink` to build a custom JRE → Stage 3: plain `alpine:3.19` runs the custom JRE + JAR. Maven, the full JDK, and the `.m2` cache are all discarded.
 
 ---
 
@@ -109,4 +109,4 @@ COPY --from=build /app/target/*.jar app.jar
 
 **Why it worked:** `jdeps` statically analyses the JAR's bytecode to list every Java module it imports. `jlink` then assembles a JRE with exactly those modules — no reflection APIs, no CORBA, no XML-RPC, none of the legacy cruft bundled in a standard JRE. `--compress=2` and `--strip-debug` shrink it further. The final base is `alpine:3.19` (~5MB) instead of `eclipse-temurin:17-jre-alpine` (~180MB).
 
-**Further reduction possible:** GraalVM native-image compilation can bring Spring Boot down to ~80MB and also gives sub-second startup. Trade-off: much longer build times and requires native-image compatibility for all libraries.
+**GraalVM native-image was tried and reverted.** Result: 244MB disk / 60.7MB compressed — larger on disk than jlink (204MB), 15+ minute build time, and Maven installation alone took 200s inside the GraalVM container. The compressed size is better (60.7MB vs 86.3MB) but not worth the tradeoff. Spring Boot's native binary bundles all AOT-generated reflection metadata and Hibernate proxies statically, making it fatter than expected. jlink remains the better option for this stack.
