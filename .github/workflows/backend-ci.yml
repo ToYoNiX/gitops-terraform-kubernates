@@ -67,7 +67,8 @@ jobs:
           mvn org.owasp:dependency-check-maven:check \
             -DfailBuildOnCVSS=9 \
             -Dformat=HTML \
-            -DoutputDirectory=../reports
+            -DoutputDirectory=../reports \
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }}
         continue-on-error: true
 
       - name: Upload OWASP report
