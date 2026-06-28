@@ -1,0 +1,48 @@
+name: DAST
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 1'
+
+jobs:
+  dast:
+    name: DAST (Selenium + OWASP ZAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start application stack
+        run: docker compose up -d --build
+
+      - name: Wait for backend
+        run: |
+          timeout 120 bash -c \
+            'until curl -sf http://localhost:8080/api/products; do sleep 3; done'
+
+      - name: Wait for frontend
+        run: |
+          timeout 30 bash -c \
+            'until curl -sf http://localhost; do sleep 2; done'
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Selenium
+        run: pip install -r tests/e2e/requirements.txt
+
+      - name: Run Selenium E2E smoke tests
+        run: pytest tests/e2e/ -v
+
+      - name: OWASP ZAP full scan
+        uses: zaproxy/action-full-scan@v0.10.0
+        with:
+          target: 'http://localhost'
+          allow_issue_writing: false
+          artifact_name: zap-report
+
+      - name: Stop application stack
+        if: always()
+        run: docker compose down

@@ -14,8 +14,11 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 ├── frontend/                 # Angular 17 SPA (TypeScript, Angular Material)
 ├── terraform/                # (planned) AWS infrastructure as code
 ├── kubernetes/               # (planned) K8s manifests for all services
-├── .github/workflows/        # (planned) CI/CD, SAST, DAST, linting workflows
-└── docker-compose.yml        # Local dev: spins up Postgres + backend + frontend
+├── .github/workflows/        # CI/CD pipelines (backend-ci, frontend-ci, dast)
+├── docker-compose.yml        # Local dev: spins up Postgres + backend + frontend
+├── MEMORY.md                 # Project context for humans and agents
+├── NOTES.md                  # Lessons learned, technical decisions, gotchas
+└── README.md                 # Project overview, DEPI metadata, team
 ```
 
 ## Application
@@ -29,7 +32,7 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 ## Tech stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | Angular 17, Angular Material, TypeScript |
 | Backend | Spring Boot 3.2, Spring Data JPA, Bean Validation |
 | Database | PostgreSQL 16 (H2 for tests only) |
@@ -43,9 +46,9 @@ The application is a realistic CRUD web app for managing warehouse/office invent
 docker compose up --build
 ```
 
-- Frontend: http://localhost:80
-- Backend API: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger-ui.html
+- Frontend: <http://localhost:80>
+- Backend API: <http://localhost:8080>
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
 - Postgres: localhost:5432 / db: inventory / user: postgres / pass: postgres
 
 ## Backend API
@@ -53,7 +56,7 @@ docker compose up --build
 Base URL: `/api/products`
 
 | Method | Path | Description |
-|---|---|---|
+| --- | --- | --- |
 | GET | `/api/products` | List all (supports `?search=`, `?category=`, `?status=`) |
 | GET | `/api/products/{id}` | Get by ID |
 | POST | `/api/products` | Create product |
@@ -66,22 +69,55 @@ Base URL: `/api/products`
 All credentials are injected via environment variables — map these to Kubernetes secrets:
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `DB_HOST` | `localhost` | Postgres host |
 | `DB_PORT` | `5432` | Postgres port |
 | `DB_NAME` | `inventory` | Database name |
 | `DB_USER` | `postgres` | Database user |
 | `DB_PASSWORD` | `postgres` | Database password |
 
-## DevSecOps pipeline (planned workflows)
+## DevSecOps pipeline
 
-The `.github/workflows/` directory will contain:
+### Implemented workflows
 
-- **backend-ci.yml** — Maven build, JUnit tests, JaCoCo coverage, SonarQube SAST, OWASP Dependency-Check, Trivy image scan, secrets detection (Gitleaks)
-- **frontend-ci.yml** — npm install, ESLint, Angular build, Karma unit tests, SonarQube SAST, npm audit, Trivy image scan
-- **dast.yml** — Selenium E2E tests + OWASP ZAP dynamic scan against deployed environment
+- **backend-ci.yml** — Gitleaks secrets scan → Maven build + JUnit + JaCoCo → SonarQube SAST → OWASP Dependency-Check → Trivy image scan
+- **frontend-ci.yml** — ESLint → npm audit → Karma unit tests + coverage → SonarQube SAST → Trivy image scan
+- **dast.yml** — Spins up full stack via docker compose → Selenium E2E smoke tests → OWASP ZAP full scan. Triggered manually or weekly (Monday 2am)
+
+### Planned workflows
+
 - **terraform.yml** — Terraform plan/apply for AWS infrastructure
 - **deploy.yml** — Update Kubernetes manifests and trigger ArgoCD/Flux sync
+
+## GitHub Actions secrets
+
+All secrets are added at: **repo → Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret | Required | Description |
+| --- | --- | --- |
+| `SONAR_TOKEN` | Yes | SonarCloud personal access token |
+| `SONAR_HOST_URL` | Yes | Always `https://sonarcloud.io` |
+| `SONAR_ORGANIZATION` | Yes | SonarCloud org key (found in the org URL: `sonarcloud.io/organizations/<key>`) |
+| `NVD_API_KEY` | Recommended | Speeds up OWASP Dependency-Check from 20 min to 2 min |
+| `GITLEAKS_LICENSE` | No | Only needed for private repos — public repos work without it |
+
+### Getting SONAR_TOKEN
+
+1. Go to <https://sonarcloud.io> and sign in with GitHub
+2. Import the repo via "+" → "Analyze new project"
+3. Disable **Automatic Analysis**: Administration → Analysis Method → toggle off (required or CI scan fails)
+4. Go to **My Account → Security → Generate Token** — type: Global Analysis Token
+5. The `sonar.projectKey` in `backend/pom.xml` and `frontend/sonar-project.properties` must exactly match the key SonarCloud auto-generates (`{org}_{repo}`, e.g. `ToYoNiX_gitops-terraform-kubernates`)
+
+### Getting NVD_API_KEY
+
+1. Go to <https://nvd.nist.gov/developers/request-an-api-key>
+2. Fill in your email, organization name, and organization type
+3. You will receive an email with a UUID and a verification link
+4. Click the link, enter your email and the UUID
+5. Your API key is shown — copy it and add it as `NVD_API_KEY` in GitHub secrets
+
+---
 
 ## Commit message standard
 
@@ -98,7 +134,7 @@ Every commit — whether from a human or an agent — must follow this format:
 ### Types
 
 | Type | When to use |
-|---|---|
+| --- | --- |
 | `feat` | A new feature or capability |
 | `fix` | A bug fix |
 | `infra` | Terraform, Kubernetes, or Docker changes |
@@ -112,7 +148,7 @@ Every commit — whether from a human or an agent — must follow this format:
 ### Scopes
 
 | Scope | Maps to |
-|---|---|
+| --- | --- |
 | `backend` | `backend/` |
 | `frontend` | `frontend/` |
 | `k8s` | `kubernetes/` |
@@ -167,3 +203,5 @@ security(backend): upgrade spring-boot to 3.2.5 — CVE-2024-XXXX
 - **Angular Material**: professional UI out of the box, minimal custom CSS required
 - **Env-var-driven config**: no secrets hardcoded anywhere; ready for Kubernetes Secrets injection
 - **Status auto-computation**: the service layer derives stock status from quantity — no manual status field exposed to the frontend form
+- **nginx:alpine-slim over nginx:alpine**: frontend final stage uses `nginx:alpine-slim` (21.8MB vs 93.9MB) — strips bash, apk, and unused modules while keeping static serving, `try_files`, and `proxy_pass`
+- **jlink custom JRE for backend**: 3-stage build uses `jdeps` + `jlink` to assemble a minimal JRE with only the modules Spring Boot actually imports (204MB vs 355MB). GraalVM native-image was tried and reverted — produced a larger image (244MB) with 15+ min build time for this stack

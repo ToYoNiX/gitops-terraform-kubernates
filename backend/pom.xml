@@ -19,7 +19,9 @@
 
   <properties>
     <java.version>17</java.version>
-    <sonar.projectKey>inventory-backend</sonar.projectKey>
+    <tomcat.version>10.1.55</tomcat.version>
+    <postgresql.version>42.7.3</postgresql.version>
+    <sonar.projectKey>ToYoNiX_gitops-terraform-kubernates</sonar.projectKey>
     <sonar.projectName>Inventory Backend</sonar.projectName>
     <sonar.coverage.jacoco.xmlReportPaths>
       ${project.build.directory}/site/jacoco/jacoco.xml
