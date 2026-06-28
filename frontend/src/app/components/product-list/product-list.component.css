@@ -1,0 +1,12 @@
+.loading-center { display: flex; justify-content: center; margin-top: 80px; }
+
+.filter-card { margin-bottom: 16px; }
+.filter-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 8px 0 0; }
+.filter-field { min-width: 180px; flex: 1; }
+.clear-btn { height: 56px; }
+
+.product-table { width: 100%; }
+.sub-text { font-size: 12px; color: #888; margin-top: 2px; }
+
+.empty-card { text-align: center; padding: 48px; }
+.empty-icon { font-size: 64px; width: 64px; height: 64px; color: #ccc; display: block; margin: 0 auto 16px; }

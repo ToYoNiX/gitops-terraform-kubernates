@@ -1,0 +1,14 @@
+.form-page { max-width: 700px; }
+.form-card mat-card-content { padding: 24px; }
+.full-width { width: 100%; margin-bottom: 8px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+.loading-center { display: flex; justify-content: center; margin-top: 80px; }
+
+.hint-box {
+  display: flex; align-items: center; gap: 8px;
+  background: #e3f2fd; border-radius: 6px; padding: 10px 14px;
+  font-size: 13px; color: #1565c0; margin-bottom: 24px;
+}
+.hint-box mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+.form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }

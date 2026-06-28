@@ -1,0 +1,107 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Products</h1>
+    <a mat-raised-button color="primary" routerLink="/products/new">
+      <mat-icon>add</mat-icon> Add Product
+    </a>
+  </div>
+
+  <mat-card class="filter-card">
+    <mat-card-content class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Search</mat-label>
+        <input matInput [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Product name...">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Category</mat-label>
+        <mat-select [(ngModel)]="selectedCategory" (ngModelChange)="onFilterChange()">
+          <mat-option value="">All Categories</mat-option>
+          @for (cat of categories; track cat) {
+            <mat-option [value]="cat">{{ cat }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()">
+          <mat-option value="">All Statuses</mat-option>
+          <mat-option value="IN_STOCK">In Stock</mat-option>
+          <mat-option value="LOW_STOCK">Low Stock</mat-option>
+          <mat-option value="OUT_OF_STOCK">Out of Stock</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button (click)="clearFilters()" class="clear-btn">
+        <mat-icon>clear</mat-icon> Clear
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  @if (loading) {
+    <div class="loading-center"><mat-spinner diameter="48"></mat-spinner></div>
+  } @else if (products.length === 0) {
+    <mat-card class="empty-card">
+      <mat-card-content>
+        <mat-icon class="empty-icon">inventory_2</mat-icon>
+        <p>No products found.</p>
+        <a mat-raised-button color="primary" routerLink="/products/new">Add your first product</a>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <mat-card>
+      <table mat-table [dataSource]="products" class="product-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let p">
+            <strong>{{ p.name }}</strong>
+            @if (p.description) {
+              <div class="sub-text">{{ p.description }}</div>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="category">
+          <th mat-header-cell *matHeaderCellDef>Category</th>
+          <td mat-cell *matCellDef="let p">{{ p.category }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="quantity">
+          <th mat-header-cell *matHeaderCellDef>Quantity</th>
+          <td mat-cell *matCellDef="let p">{{ p.quantity }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Price</th>
+          <td mat-cell *matCellDef="let p">{{ p.price | currency }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let p">
+            <span class="status-badge status-{{ p.status }}">
+              {{ p.status === 'IN_STOCK' ? 'In Stock' : p.status === 'LOW_STOCK' ? 'Low Stock' : 'Out of Stock' }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let p">
+            <a mat-icon-button color="primary" [routerLink]="['/products', p.id, 'edit']" title="Edit">
+              <mat-icon>edit</mat-icon>
+            </a>
+            <button mat-icon-button color="warn" (click)="confirmDelete(p)" title="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </mat-card>
+  }
+</div>

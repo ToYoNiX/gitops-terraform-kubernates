@@ -1,0 +1,78 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <a mat-raised-button color="primary" routerLink="/products/new">
+      <mat-icon>add</mat-icon> Add Product
+    </a>
+  </div>
+
+  @if (loading) {
+    <div class="loading-center">
+      <mat-spinner diameter="48"></mat-spinner>
+    </div>
+  } @else {
+    <div class="stats-grid">
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-icon total"><mat-icon>inventory_2</mat-icon></div>
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">Total Products</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-icon in-stock"><mat-icon>check_circle</mat-icon></div>
+          <div class="stat-value">{{ stats.inStock }}</div>
+          <div class="stat-label">In Stock</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-icon low-stock"><mat-icon>warning</mat-icon></div>
+          <div class="stat-value">{{ stats.lowStock }}</div>
+          <div class="stat-label">Low Stock</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-icon out-of-stock"><mat-icon>cancel</mat-icon></div>
+          <div class="stat-value">{{ stats.outOfStock }}</div>
+          <div class="stat-label">Out of Stock</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card wide">
+        <mat-card-content>
+          <div class="stat-icon value"><mat-icon>attach_money</mat-icon></div>
+          <div class="stat-value">{{ stats.totalValue | currency }}</div>
+          <div class="stat-label">Total Inventory Value</div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    @if (lowStockProducts.length > 0) {
+      <mat-card class="alert-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="alert-icon">warning_amber</mat-icon>
+          <mat-card-title>Needs Attention</mat-card-title>
+          <mat-card-subtitle>{{ lowStockProducts.length }} product(s) require restocking</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="alert-list">
+            @for (product of lowStockProducts; track product.id) {
+              <div class="alert-item">
+                <span class="alert-name">{{ product.name }}</span>
+                <span class="alert-qty">Qty: {{ product.quantity }}</span>
+                <span class="status-badge status-{{ product.status }}">{{ product.status | titlecase }}</span>
+                <a mat-button color="primary" [routerLink]="['/products', product.id, 'edit']">Edit</a>
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+</div>
