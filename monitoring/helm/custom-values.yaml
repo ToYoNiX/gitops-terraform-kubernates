@@ -1,0 +1,31 @@
+grafana:
+  enabled: true
+
+  adminUser: admin
+  adminPassword: Depi@123
+
+  service:
+    type: NodePort
+    nodePort: 32000
+
+  persistence:
+    enabled: false
+
+prometheus:
+  enabled: true
+
+  prometheusSpec:
+    retention: 15d
+
+    scrapeInterval: 30s
+
+    evaluationInterval: 30s
+
+alertmanager:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true
