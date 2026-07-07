@@ -128,6 +128,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set image name
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -141,5 +144,5 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner | lower }}/gitops-terraform-kubernates/backend:latest
-            ghcr.io/${{ github.repository_owner | lower }}/gitops-terraform-kubernates/backend:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/gitops-terraform-kubernates/backend:latest
+            ghcr.io/${{ env.OWNER }}/gitops-terraform-kubernates/backend:${{ github.sha }}
