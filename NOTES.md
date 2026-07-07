@@ -1,5 +1,109 @@
 # Project Notes & Lessons Learned
 
+---
+
+## Terraform — Full Deployment Walkthrough
+
+### 1. Install prerequisites (once)
+
+```bash
+sudo apt install -y qemu-kvm libvirt-daemon-system virtinst terraform genisoimage xsltproc
+sudo usermod -aG libvirt $USER
+newgrp libvirt
+```
+
+`genisoimage` provides `mkisofs` which the libvirt Terraform provider needs to build the cloud-init ISOs. Without it, `terraform apply` will fail after downloading the base image with `exec: "mkisofs": executable file not found in $PATH`.
+
+**Use MAC address matching in cloud-init network-config, not interface names** — Ubuntu 22.04 cloud images name the NIC unpredictably (`ens3`, `enp1s0`, etc.) depending on PCI slot assignment. Hardcoding the interface name in `network-config.yaml.tpl` means the static IP silently never gets applied and the VM boots with no IP. The fix is to set fixed MAC addresses per VM in Terraform and match by MAC in cloud-init:
+
+```yaml
+version: 2
+ethernets:
+  id0:
+    match:
+      macaddress: ${mac}
+    dhcp4: false
+    addresses:
+      - ${ip}/24
+```
+
+Fixed MACs are defined in `variables.tf` locals and passed to both the `network_interface` block and the cloud-init template.
+
+**Also disable AppArmor confinement for QEMU before applying** — on Ubuntu, QEMU runs as `libvirt-qemu` and AppArmor blocks it from reading image files downloaded by your user. Without this fix, VMs will be defined but fail to start with `Permission denied` on the disk image:
+
+```bash
+sudo sed -i 's/#security_driver = "selinux"/security_driver = "none"/' /etc/libvirt/qemu.conf
+sudo systemctl restart libvirtd
+```
+
+### 2. Generate SSH keypair (once)
+
+```bash
+ssh-keygen -t ed25519 -C "depi-k3s" -f ~/.ssh/depi_k3s -N ""
+```
+
+- `-t ed25519` — modern, fast, preferred over RSA
+- `-f ~/.ssh/depi_k3s` — private key at `~/.ssh/depi_k3s`, public key at `~/.ssh/depi_k3s.pub`
+- `-N ""` — no passphrase (Ansible needs passwordless SSH)
+
+**Never commit the private key.** The `.pub` file is safe to reference.
+
+### 3. Run Terraform in order
+
+```bash
+cd terraform
+
+# 1. Download the libvirt provider (once per machine)
+terraform init
+
+# 2. Check config for syntax errors before touching anything
+terraform validate
+
+# 3. Dry run — shows exactly what will be created, nothing is provisioned
+terraform plan -var="ssh_public_key_path=~/.ssh/depi_k3s.pub"
+
+# 4. Provision the VMs
+terraform apply -var="ssh_public_key_path=~/.ssh/depi_k3s.pub"
+```
+
+This will:
+
+1. Download the Ubuntu 22.04 cloud image (~600MB, once)
+2. Create 3 thin-clone disks (k3s-master, k3s-agent-1, k3s-agent-2)
+3. Generate a cloud-init ISO per VM (injects SSH key, sets static IP)
+4. Boot the VMs — cloud-init runs on first boot (~60–90s)
+
+### 6. SSH into the VMs
+
+```bash
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10   # master
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.11   # agent-1
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.12   # agent-2
+```
+
+Or add this to `~/.ssh/config` to avoid typing the key every time:
+
+```sshconfig
+Host 10.17.3.*
+    User depi
+    IdentityFile ~/.ssh/depi_k3s
+    StrictHostKeyChecking no
+```
+
+Then just: `ssh 10.17.3.10`
+
+### 7. Tear down
+
+```bash
+terraform destroy -var="ssh_public_key_path=~/.ssh/depi_k3s.pub"
+```
+
+### Notes
+
+- Ansible uses the same private key — configured in `ansible/ansible.cfg`
+- If cloud-init hasn't finished yet SSH will refuse connections — wait 90s after `terraform apply` completes before SSHing in
+- VM console available via `virsh console k3s-master` if SSH is unreachable
+
 Running log of technical decisions, discoveries, and fixes made during development.
 
 ---

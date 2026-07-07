@@ -61,17 +61,17 @@ GitHub Actions CI/CD
      On-Premises (Terraform + QEMU/KVM)
      ┌─────────────────────────────────┐
      │  k3s Cluster                    │
-     │  ┌──────────┐  ┌─────────────┐ │
-     │  │ Frontend │  │   Backend   │ │
-     │  │ (Nginx)  │  │(Spring Boot)│ │
-     │  └──────────┘  └──────┬──────┘ │
-     │                       │        │
-     │               ┌───────▼──────┐ │
-     │               │  PostgreSQL  │ │
-     │               └──────────────┘ │
-     │                                │
-     │  Prometheus + Grafana          │
-     │  Cloudflare Tunnel (public URL)│
+     │  ┌──────────┐  ┌─────────────┐  │
+     │  │ Frontend │  │   Backend   │  │
+     │  │ (Nginx)  │  │(Spring Boot)│  │
+     │  └──────────┘  └──────┬──────┘  │
+     │                       │         │
+     │               ┌───────▼──────┐  │
+     │               │  PostgreSQL  │  │
+     │               └──────────────┘  │
+     │                                 │
+     │  Prometheus + Grafana           │
+     │  Cloudflare Tunnel (public URL) │
      └─────────────────────────────────┘
             │
             ▼
