@@ -6,7 +6,15 @@
 | --- | --- |
 | **Instructor** | Eng. Mohamed Atef |
 | **Group** | GIZ4_SWD1_S1 |
-| **Repo** | [github.com/ToYoNiX/gitops-terraform-kubernates](https://github.com/ToYoNiX/gitops-terraform-kubernates) |
+| **Repo** | [github.com/Mohammed-Eissa/gitops-terraform-kubernates](https://github.com/Mohammed-Eissa/gitops-terraform-kubernates) |
+
+## Forks
+
+| Fork | Branch | Owner |
+| --- | --- | --- |
+| [ToYoNiX/gitops-terraform-kubernates](https://github.com/ToYoNiX/gitops-terraform-kubernates) | main | Assem Mohamed Saad |
+| [AdhamZahran158/gitops-terraform-kubernates-monitoring](https://github.com/AdhamZahran158/gitops-terraform-kubernates-monitoring/tree/monitoring) | monitoring | Adham Alaa Abdulraheem |
+| [amatter17/gitops-terraform-kubernates](https://github.com/amatter17/gitops-terraform-kubernates/tree/main) | main | Ahmed Mohamed Abdelaziz Matter |
 
 ---
 
