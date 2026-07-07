@@ -23,9 +23,7 @@
     <postgresql.version>42.7.3</postgresql.version>
     <sonar.projectKey>ToYoNiX_gitops-terraform-kubernates</sonar.projectKey>
     <sonar.projectName>Inventory Backend</sonar.projectName>
-    <sonar.coverage.jacoco.xmlReportPaths>
-      ${project.build.directory}/site/jacoco/jacoco.xml
-    </sonar.coverage.jacoco.xmlReportPaths>
+    <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
   </properties>
 
   <dependencies>
@@ -89,6 +87,13 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine}</argLine>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
