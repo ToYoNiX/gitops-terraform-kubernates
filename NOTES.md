@@ -162,3 +162,25 @@ sonar.projectKey=ToYoNiX_gitops-terraform-kubernates_frontend
 ```
 
 Each key maps to a separate project in SonarCloud. After changing the keys, manually delete the old shared project from the SonarCloud dashboard (Administration → Delete Project) so it doesn't sit there as a ghost.
+
+**SonarCloud defaults the main branch to `master` — rename it to `main`:**
+
+When SonarCloud auto-creates a new project from the first CI analysis, it sets `master` as the main branch. If your repo uses `main`, the dashboard shows "master branch has not been analyzed yet" even though analyses are coming in fine — they're just landing on `main` which SonarCloud treats as a feature branch.
+
+To rename it:
+
+1. Open the project in SonarCloud
+2. In the top navigation click **Branches** (it is at the same level as Administration — Branches and Pull Requests are separate entries, not nested under Administration)
+3. Next to `master` → three dots → **Rename** → type `main` → Save
+
+Also pass `-Dsonar.branch.name` explicitly in CI so SonarCloud always knows which branch the analysis belongs to:
+
+```yaml
+# backend (mvn)
+-Dsonar.branch.name=${{ github.ref_name }}
+
+# frontend (sonarqube-scan-action args)
+-Dsonar.branch.name=${{ github.ref_name }}
+```
+
+`github.ref_name` resolves to `main` or `dev` depending on the triggering branch, so both branches are tracked correctly under the same project.

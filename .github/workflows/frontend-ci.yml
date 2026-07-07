@@ -56,7 +56,9 @@ jobs:
         uses: sonarsource/sonarqube-scan-action@master
         with:
           projectBaseDir: frontend
-          args: -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.branch.name=${{ github.ref_name }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
