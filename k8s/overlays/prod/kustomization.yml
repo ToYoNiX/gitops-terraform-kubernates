@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: prod
+resources:
+  - ../../base
+  - namespace.yml
+images:
+  - name: ghcr.io/toyonix/gitops-terraform-kubernates/backend
+    newTag: prod
+  - name: ghcr.io/toyonix/gitops-terraform-kubernates/frontend
+    newTag: prod
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: devops-depi.duckdns.org
+    target:
+      kind: Ingress
+      name: inventory-ingress

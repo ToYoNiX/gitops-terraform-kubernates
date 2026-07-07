@@ -2,6 +2,38 @@
 
 ---
 
+## GitHub Actions / GHCR Gotchas
+
+**GHCR image tags must be fully lowercase** — `docker/build-push-action` will fail with `repository name must be lowercase` if `github.repository_owner` contains uppercase letters (e.g. `ToYoNiX`). GitHub Actions expressions do not support a `| lower` filter, so lowercase it in a shell step instead:
+
+```yaml
+- name: Set image name
+  run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+- name: Build and push
+  uses: docker/build-push-action@v5
+  with:
+    tags: ghcr.io/${{ env.OWNER }}/your-repo/image:latest
+```
+
+**Gitleaks scans git history, not just the latest commit** — if a secret is accidentally committed and then removed in a follow-up commit, Gitleaks will keep flagging the original commit fingerprint on every subsequent push. Adding a `.gitleaks.toml` allowlist is the wrong fix because the secret is still in history. The correct fix is to rewrite history:
+
+```bash
+# Soft reset to before the bad commit (keeps all file changes staged)
+git reset --soft <commit-before-the-bad-one>
+
+# Re-commit with the correct content (secret already removed in working tree)
+git add -A
+git commit -m "your clean commit message"
+
+# Rewrite the remote branch
+git push --force-with-lease
+```
+
+`--force-with-lease` is safer than `--force` — it refuses to push if someone else pushed in the meantime.
+
+---
+
 ## Terraform — Full Deployment Walkthrough
 
 ### 1. Install prerequisites (once)

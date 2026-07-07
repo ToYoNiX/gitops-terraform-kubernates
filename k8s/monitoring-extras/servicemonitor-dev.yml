@@ -1,14 +1,14 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: inventory-backend
+  name: inventory-backend-dev
   namespace: monitoring
   labels:
     release: kube-prometheus-stack
 spec:
   namespaceSelector:
     matchNames:
-      - inventory
+      - dev
   selector:
     matchLabels:
       app: inventory-backend

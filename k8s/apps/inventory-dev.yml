@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: inventory
+  name: inventory-dev
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -9,11 +9,11 @@ spec:
   project: default
   source:
     repoURL: https://github.com/ToYoNiX/gitops-terraform-kubernates.git
-    targetRevision: main
-    path: k8s/inventory
+    targetRevision: dev
+    path: k8s/overlays/dev
   destination:
     server: https://kubernetes.default.svc
-    namespace: inventory
+    namespace: dev
   syncPolicy:
     automated:
       prune: true
