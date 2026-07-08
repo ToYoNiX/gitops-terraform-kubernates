@@ -170,6 +170,22 @@ Your DuckDNS token is shown at the top of the page after logging in at [duckdns.
 
 ---
 
+## Cluster Bootstrap — Alertmanager Discord Webhook Secret
+
+Alertmanager sends notifications to Discord. The webhook URL is a **bearer credential** — anyone holding it can post to the channel — so like the DuckDNS token it is created manually on the cluster and **never committed to git**.
+
+Get the URL: Discord server → **Server Settings → Integrations → Webhooks → New Webhook** → pick the alerts channel → **Copy Webhook URL**.
+
+Create the secret from your local machine (single quotes matter — the URL contains shell-hostile characters):
+
+```bash
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>' --namespace monitoring"
+```
+
+The Alertmanager pod mounts this secret (`alertmanagerSpec.secrets` + `webhook_url_file`), so the pod stays `Pending` until it exists. If the URL ever leaks: delete the webhook in Discord, create a fresh one, then recreate the secret — Alertmanager picks up the new file within a couple of minutes.
+
+---
+
 ## TLS Certificates Stuck Pending — ISP Drops DNS TXT Queries
 
 **Symptom:** all ACME challenges sit in `pending` for hours with:
@@ -253,6 +269,8 @@ metadata:
 **Related nuisance — "unsaved changes" prompt on a provisioned dashboard:** if the provisioned JSON uses an old schema (the original #4701 export was `schemaVersion: 14`), Grafana migrates it in the browser on every load, which marks the dashboard dirty — leaving it triggers a save prompt that then fails with *"cannot be saved because it has been provisioned"*. Fix: open the dashboard, use **Save → Save JSON to file** to get the schema-current JSON (`schemaVersion: 39` on Grafana 10.4.1), and put that into the ConfigMap so no migration happens on load.
 
 **Gotcha when changing a provisioned dashboard's `uid`:** Grafana 10.4 cannot switch a provisioned dashboard's uid in place. After we changed the uid to a stable `jvm-micrometer`, the sidecar wrote the new file fine, but Grafana's provisioner errored every 30s with `failed to save dashboard ... could not resolve dashboards:uid:jvm-micrometer: Dashboard not found` and kept serving the old dashboard. Since Grafana runs without persistence (sqlite lives in the container), the fix is simply restarting the pod — fresh DB, everything reprovisions cleanly from the files (see the Grafana restart one-liner in the commands section). Side effects: the old dashboard URL dies, and any UI-created state (manual dashboards, stars, changed admin password) is wiped.
+
+**Alerting on k3s — the default kube-prometheus-stack alerts lie:** `KubeSchedulerDown`, `KubeControllerManagerDown`, and `KubeProxyDown` fire *forever* on k3s because those components run inside the single k3s binary and expose no separate metrics endpoints (and there is no etcd at all). Disable their monitors in the chart values (`kubeScheduler.enabled: false`, etc.) before wiring any notification receiver, or the channel drowns in permanent critical noise on day one. Two more traps: `Watchdog` is an *intentional* always-firing heartbeat — route it to a `"null"` receiver, never to a human channel; and a notification webhook URL (Discord/Slack) is a bearer credential — bootstrap it as a manual secret like the DuckDNS token, mounted via `alertmanagerSpec.secrets` + `webhook_url_file`, never committed to git.
 
 Two related non-issues worth knowing:
 

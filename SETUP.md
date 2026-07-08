@@ -209,6 +209,33 @@ echo | openssl s_client -connect 10.17.3.10:443 -servername prod-devops-depi.duc
 
 Expect issuer `O = Let's Encrypt`. Stuck challenges can be nudged: `ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl delete challenge -n cert-manager --all"` — cert-manager recreates them immediately.
 
+### 6.5 Alertmanager Discord webhook (second manual secret)
+
+Alertmanager routes all alerts to a Discord channel. Like the DuckDNS token, the webhook URL is a **bearer credential — never commit it** (anyone holding it can post to the channel).
+
+**Create the webhook in Discord:**
+
+1. Open your Discord server and create a channel for alerts (e.g. `#alerts`)
+2. Click the server name (top-left) → **Server Settings** → **Integrations** → **Webhooks**
+3. **New Webhook** → name it (e.g. `alertmanager`) → select the `#alerts` channel
+4. **Copy Webhook URL** — it looks like `https://discord.com/api/webhooks/<id>/<token>`
+
+**Put it on the cluster** (from your local machine — keep the single quotes, the URL contains shell-hostile characters):
+
+```bash
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>' --namespace monitoring"
+```
+
+Verify it landed:
+
+```bash
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get secret alertmanager-discord-webhook -n monitoring"
+```
+
+> The Alertmanager pod mounts this secret — until it exists, the pod stays `Pending` on a missing volume. Create it right after the DuckDNS token and before ArgoCD finishes syncing the monitoring app (it self-recovers once the secret appears).
+
+Verify alerting: fire a test alert or just wait — grouped notifications arrive in the channel; the always-firing `Watchdog` heartbeat is deliberately routed to a null receiver and must **not** appear. If the webhook ever leaks, delete it in Discord, create a fresh one, and recreate the secret (`kubectl delete secret ...` then the create command above); Alertmanager picks it up within a couple of minutes.
+
 ---
 
 ## 7. ArgoCD Takes Over
