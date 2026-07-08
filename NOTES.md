@@ -2,6 +2,28 @@
 
 ---
 
+## Cluster Bootstrap — DuckDNS Setup
+
+Register two subdomains on [duckdns.org](https://www.duckdns.org) and set both to the ingress controller's external IP (`10.17.3.10`):
+
+| Subdomain | IP |
+| --- | --- |
+| `prod-devops-depi` | `10.17.3.10` |
+| `dev-devops-depi` | `10.17.3.10` |
+
+The ingress-nginx controller gets `10.17.3.10` as its external IP via k3s's built-in ServiceLB. Both domains point to the same IP — NGINX routes traffic to the correct namespace (`prod` or `dev`) based on the `Host` header.
+
+Verify with:
+
+```bash
+nslookup prod-devops-depi.duckdns.org
+nslookup dev-devops-depi.duckdns.org
+```
+
+Both should return `10.17.3.10`. This works for any machine on the same local network. No port forwarding or public IP needed for local access.
+
+---
+
 ## Cluster Bootstrap — DuckDNS Token Secret
 
 The DuckDNS token used by cert-manager for the DNS-01 challenge must **never be committed to git**. After running `ansible-playbook playbooks/site.yml` and before cert-manager tries to issue the certificate, create the secret manually on the cluster:
