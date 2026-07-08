@@ -77,6 +77,7 @@ data:
       "graphTooltip": 1,
       "hideControls": false,
       "id": null,
+      "uid": "jvm-micrometer",
       "links": [],
       "refresh": "30s",
       "rows": [
