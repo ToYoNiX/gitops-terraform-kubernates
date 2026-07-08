@@ -11,3 +11,4 @@ spec:
   dnsNames:
     - "prod-devops-depi.duckdns.org"
     - "dev-devops-depi.duckdns.org"
+    - "monitoring-devops-depi.duckdns.org"
