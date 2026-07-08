@@ -46,47 +46,9 @@ Everything lives in this monorepo: application source code, Terraform modules, K
 
 ## System Architecture
 
-```text
-Developer Push (main / dev)
-         │
-         ▼
- GitHub Actions CI/CD
-  ├── Secrets Scan (Gitleaks)
-  ├── SAST (SonarCloud)
-  ├── Dependency Audit (OWASP, npm audit)
-  ├── Container Build + Trivy Scan
-  └── Push to GHCR
-       ├── main  →  :prod tag
-       └── dev   →  :dev  tag
-         │
-         ▼
-      ArgoCD (GitOps)
-      watches k8s/ on each branch
-         │
-         ├──────────────────────────────────┐
-         ▼                                  ▼
-  On-Premises k3s Cluster (QEMU/KVM via Terraform + Ansible)
-  ┌────────────────────────────────────────────────────────┐
-  │                                                        │
-  │  namespace: prod               namespace: dev          │
-  │  ┌─────────────────────┐       ┌──────────────────┐   │
-  │  │ Frontend (Nginx)    │       │ Frontend (Nginx) │   │
-  │  │ Backend (Spring)    │       │ Backend (Spring) │   │
-  │  │ PostgreSQL          │       │ PostgreSQL       │   │
-  │  │ NGINX Ingress + TLS │       │ NGINX Ingress    │   │
-  │  └─────────────────────┘       └──────────────────┘   │
-  │                                                        │
-  │  namespace: monitoring                                 │
-  │  ┌────────────────────────────────────────────────┐   │
-  │  │  Prometheus + Grafana (kube-prometheus-stack)  │   │
-  │  │  ServiceMonitors for prod + dev backends       │   │
-  │  └────────────────────────────────────────────────┘   │
-  │                                                        │
-  └────────────────────────────────────────────────────────┘
-         │
-         ▼
-  DAST (OWASP ZAP)
-```
+![Architecture diagram — CI/CD pipeline, GitOps flow, and infrastructure provisioning](static/architecture.svg)
+
+The flow, top to bottom: every push runs the security-gated CI pipeline and (on `main`/`dev`) publishes `:prod`/`:dev` images to GHCR; ArgoCD pulls manifests from git and images from GHCR into the k3s cluster; the cluster itself was provisioned once by Terraform (QEMU/KVM VMs) and Ansible, which bootstraps ArgoCD via Helm.
 
 ---
 
