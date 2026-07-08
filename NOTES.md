@@ -2,6 +2,27 @@
 
 ---
 
+## Cluster Bootstrap — DuckDNS Token Secret
+
+The DuckDNS token used by cert-manager for the DNS-01 challenge must **never be committed to git**. After running `ansible-playbook playbooks/site.yml` and before cert-manager tries to issue the certificate, create the secret manually on the cluster:
+
+```bash
+# From your local machine (kubeconfig already at ~/.kube/config after Ansible run)
+kubectl create secret generic duckdns-token \
+  --from-literal=token=<your-duckdns-token> \
+  --namespace cert-manager
+
+# Or from the master node directly
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10
+sudo k3s kubectl create secret generic duckdns-token \
+  --from-literal=token=<your-duckdns-token> \
+  --namespace cert-manager
+```
+
+Your DuckDNS token is shown at the top of the page after logging in at [duckdns.org](https://www.duckdns.org). Once the secret exists, cert-manager picks it up automatically and completes the DNS-01 challenge to issue the TLS certificate.
+
+---
+
 ## GitHub Actions / GHCR Gotchas
 
 **GHCR image tags must be fully lowercase** — `docker/build-push-action` will fail with `repository name must be lowercase` if `github.repository_owner` contains uppercase letters (e.g. `ToYoNiX`). GitHub Actions expressions do not support a `| lower` filter, so lowercase it in a shell step instead:
