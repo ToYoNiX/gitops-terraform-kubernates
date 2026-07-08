@@ -1,4 +1,4 @@
-# Automated DevOps Deployment Pipeline Using GitHub Actions, Terraform, Docker, Kubernetes, and Prometheus
+# Automated DevOps Deployment Pipeline Using GitHub Actions, Terraform, Ansible, Kubernetes, and Prometheus
 
 > **Digital Egypt Pioneers Initiative (DEPI)**
 
@@ -32,13 +32,13 @@
 
 ## Project Overview
 
-This project delivers a **fully automated DevOps pipeline** for an Inventory Manager web application. The team owns the entire engineering layer beneath the application — infrastructure provisioning, containerization, CI/CD, orchestration, security scanning, and monitoring — demonstrating end-to-end modern DevOps practices.
+This project delivers a **fully automated GitOps pipeline** for an Inventory Manager web application. The team owns the entire engineering layer beneath the application — infrastructure provisioning, containerisation, CI/CD, orchestration, security scanning, and monitoring — demonstrating end-to-end modern DevOps practices.
 
 The application is a full-stack Inventory Manager built in-house:
 
 - **Frontend** — Angular 17 + Angular Material served via Nginx
 - **Backend** — Spring Boot 3.2 REST API (Java 17) with JWT authentication
-- **Database** — PostgreSQL 16
+- **Database** — PostgreSQL 15
 
 Everything lives in this monorepo: application source code, Terraform modules, Kubernetes manifests, Ansible playbooks, and GitHub Actions workflows.
 
@@ -47,35 +47,69 @@ Everything lives in this monorepo: application source code, Terraform modules, K
 ## System Architecture
 
 ```text
-Developer Push
-      │
-      ▼
-GitHub Actions CI/CD
-  ├── SAST (SonarCloud)
+Developer Push (main / dev)
+         │
+         ▼
+ GitHub Actions CI/CD
   ├── Secrets Scan (Gitleaks)
+  ├── SAST (SonarCloud)
   ├── Dependency Audit (OWASP, npm audit)
-  ├── Docker Build & Push (Trivy image scan)
-  └── Deploy to Kubernetes
-            │
-            ▼
-     On-Premises (Terraform + QEMU/KVM)
-     ┌─────────────────────────────────┐
-     │  k3s Cluster                    │
-     │  ┌──────────┐  ┌─────────────┐  │
-     │  │ Frontend │  │   Backend   │  │
-     │  │ (Nginx)  │  │(Spring Boot)│  │
-     │  └──────────┘  └──────┬──────┘  │
-     │                       │         │
-     │               ┌───────▼──────┐  │
-     │               │  PostgreSQL  │  │
-     │               └──────────────┘  │
-     │                                 │
-     │  Prometheus + Grafana           │
-     │  Cloudflare Tunnel (public URL) │
-     └─────────────────────────────────┘
-            │
-            ▼
-     DAST (Selenium + OWASP ZAP)
+  ├── Container Build + Trivy Scan
+  └── Push to GHCR
+       ├── main  →  :prod tag
+       └── dev   →  :dev  tag
+         │
+         ▼
+      ArgoCD (GitOps)
+      watches k8s/ on each branch
+         │
+         ├──────────────────────────────────┐
+         ▼                                  ▼
+  On-Premises k3s Cluster (QEMU/KVM via Terraform + Ansible)
+  ┌────────────────────────────────────────────────────────┐
+  │                                                        │
+  │  namespace: prod               namespace: dev          │
+  │  ┌─────────────────────┐       ┌──────────────────┐   │
+  │  │ Frontend (Nginx)    │       │ Frontend (Nginx) │   │
+  │  │ Backend (Spring)    │       │ Backend (Spring) │   │
+  │  │ PostgreSQL          │       │ PostgreSQL       │   │
+  │  │ NGINX Ingress + TLS │       │ NGINX Ingress    │   │
+  │  └─────────────────────┘       └──────────────────┘   │
+  │                                                        │
+  │  namespace: monitoring                                 │
+  │  ┌────────────────────────────────────────────────┐   │
+  │  │  Prometheus + Grafana (kube-prometheus-stack)  │   │
+  │  │  ServiceMonitors for prod + dev backends       │   │
+  │  └────────────────────────────────────────────────┘   │
+  │                                                        │
+  └────────────────────────────────────────────────────────┘
+         │
+         ▼
+  DAST (OWASP ZAP)
+```
+
+---
+
+## GitOps Flow
+
+This project uses an **App-of-Apps** pattern with ArgoCD:
+
+1. ArgoCD watches `k8s/apps/` on the `main` branch
+2. `k8s/apps/` contains ArgoCD `Application` manifests for every component
+3. Each child app points at its own path and branch:
+   - `inventory-prod` → `k8s/overlays/prod` on `main`
+   - `inventory-dev` → `k8s/overlays/dev` on `dev`
+   - `monitoring` → kube-prometheus-stack Helm chart
+   - `ingress-nginx` → ingress-nginx Helm chart
+   - `cert-manager` → cert-manager Helm chart
+4. Pushing to `main` triggers CI → pushes `:prod` image → ArgoCD detects the new image and redeploys prod
+5. Pushing to `dev` triggers CI → pushes `:dev` image → ArgoCD redeploys dev
+
+```text
+main branch push
+  └── CI builds + pushes ghcr.io/.../backend:prod
+        └── ArgoCD (polling every 3 min) detects new image
+              └── Redeploys prod namespace automatically
 ```
 
 ---
@@ -84,15 +118,15 @@ GitHub Actions CI/CD
 
 | Stage | Tool | Trigger |
 | --- | --- | --- |
+| Secrets Detection | Gitleaks | Every push |
 | Lint | ESLint, Checkstyle | Every push |
 | Unit Tests | JUnit, Karma | Every push |
 | SAST | SonarCloud | Every push |
-| Secrets Detection | Gitleaks | Every push |
 | Dependency Audit | OWASP Dependency-Check, npm audit | Every push |
 | Container Build & Scan | Docker, Trivy | Every push |
-| Infrastructure Provision | Terraform + Ansible | Merge to main |
-| Deploy | Kubernetes (k3s) | Merge to main |
-| DAST | Selenium, OWASP ZAP | Post-deploy / weekly |
+| Image Push | GHCR | Push to `main` or `dev` only |
+| GitOps Sync | ArgoCD | Automatic after image push |
+| DAST | OWASP ZAP | Post-deploy / weekly |
 | Monitoring | Prometheus, Grafana | Always-on |
 
 ---
@@ -111,9 +145,31 @@ GitHub Actions CI/CD
 │   ├── nginx.conf
 │   └── Dockerfile
 ├── terraform/            # QEMU/KVM VM provisioning (libvirt provider)
-├── ansible/              # k3s install, app deploy, monitoring, Cloudflare tunnel
-├── kubernetes/           # K8s manifests (Deployments, Services, Secrets, HPA)
-├── monitoring/           # Prometheus + Grafana helm values and manifests
+│   ├── main.tf
+│   ├── vms.tf
+│   ├── network.tf
+│   └── cloud-init/
+├── ansible/              # k3s cluster setup + ArgoCD install
+│   ├── playbooks/
+│   │   ├── site.yml      # full setup (k3s + ArgoCD)
+│   │   └── k3s.yml       # cluster only
+│   └── roles/
+│       ├── common/       # system prep (kernel modules, sysctl, swap)
+│       ├── k3s-server/   # install k3s master, fetch kubeconfig
+│       ├── k3s-agent/    # join agents to cluster
+│       └── argocd/       # install ArgoCD via Helm, register root app
+├── k8s/                  # Kubernetes manifests (Kustomize)
+│   ├── apps/             # ArgoCD App-of-Apps root
+│   ├── base/             # shared manifests (postgres, backend, frontend)
+│   ├── overlays/
+│   │   ├── prod/         # namespace: prod, image: :prod, TLS ingress
+│   │   └── dev/          # namespace: dev, image: :dev, single instance
+│   ├── cert-manager/     # ClusterIssuer + wildcard Certificate
+│   └── monitoring-extras/# ServiceMonitors for prod + dev
+├── monitoring/           # Docker Compose monitoring stack (local dev)
+│   ├── docker/
+│   ├── helm/
+│   └── dashboards/
 ├── .github/workflows/    # CI/CD pipeline definitions
 └── docker-compose.yml    # Local development stack
 ```
@@ -135,8 +191,88 @@ docker compose up --build
 | Frontend | <http://localhost> |
 | Backend API | <http://localhost:8080> |
 | Swagger UI | <http://localhost:8080/swagger-ui.html> |
+| Prometheus | <http://localhost:9090> |
+| Grafana | <http://localhost:3000> |
 
 Default login: `admin` / `admin`
+
+---
+
+## Deploying the Cluster
+
+### 1. Provision VMs with Terraform
+
+```bash
+cd terraform
+terraform init
+terraform apply -var="ssh_public_key_path=~/.ssh/depi_k3s.pub"
+```
+
+Creates 3 QEMU/KVM VMs: `k3s-master` (10.17.3.10), `k3s-agent-1` (10.17.3.11), `k3s-agent-2` (10.17.3.12).
+
+See [NOTES.md](NOTES.md) for prerequisites and gotchas.
+
+### 2. Install k3s + ArgoCD with Ansible
+
+```bash
+cd ansible
+ansible-playbook playbooks/site.yml
+```
+
+This installs k3s on all nodes, joins the agents, installs ArgoCD via Helm, and registers the root ArgoCD app pointing at `k8s/apps/`.
+
+### 3. Bootstrap the DuckDNS token (once)
+
+Before ArgoCD syncs cert-manager, create the token secret on the cluster manually — it must never be committed to git:
+
+```bash
+kubectl create secret generic duckdns-token \
+  --from-literal=token=<your-duckdns-token> \
+  --namespace cert-manager
+```
+
+### 4. ArgoCD takes over
+
+Once the root app is registered, ArgoCD deploys everything automatically:
+
+- NGINX ingress controller
+- cert-manager + DuckDNS webhook + wildcard TLS certificate
+- `prod` namespace (from `main` branch)
+- `dev` namespace (from `dev` branch, once it exists)
+- kube-prometheus-stack in `monitoring` namespace
+
+Access ArgoCD UI at `http://10.17.3.10:30080` — get the initial password with:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+---
+
+## Cloudflare Tunnel (Alternative Public Access)
+
+> **Note:** The cluster is deployed on-premises and is not exposed publicly. The section below documents the intended public-facing approach for reference.
+
+[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) allows exposing services from a private network without opening firewall ports. `cloudflared` runs inside the cluster and creates an outbound tunnel to Cloudflare's edge — no port forwarding required.
+
+**How it would work with this setup:**
+
+1. Add your domain to Cloudflare (free)
+2. Create a tunnel in the Cloudflare Zero Trust dashboard
+3. Deploy `cloudflared` as a Kubernetes Deployment with the tunnel token
+4. Configure ingress rules in Cloudflare to route `prod.yourdomain.com` → frontend service and `dev.yourdomain.com` → dev frontend service
+5. Cloudflare handles TLS — cert-manager is not needed
+
+**Trade-offs vs. the current DuckDNS + cert-manager setup:**
+
+| | Cloudflare Tunnel | DuckDNS + cert-manager |
+| --- | --- | --- |
+| Port forwarding | Not required | Required |
+| TLS | Cloudflare-managed | Let's Encrypt (cert-manager) |
+| Domain requirement | Real domain on Cloudflare DNS | Free DuckDNS subdomain |
+| DDoS protection | Yes (Cloudflare edge) | No |
+| Complexity | Low | Medium |
 
 ---
 
@@ -146,13 +282,14 @@ Default login: `admin` / `admin`
 | --- | --- |
 | Frontend | Angular 17, Angular Material, TypeScript |
 | Backend | Spring Boot 3.2, Spring Security, JWT, Spring Data JPA, Java 17 |
-| Database | PostgreSQL 16 |
-| Containerization | Docker |
-| Orchestration | Kubernetes (k3s, on-premises) |
-| Infrastructure | Terraform (libvirt provider), Ansible |
+| Database | PostgreSQL 15 |
+| Containerisation | Docker, GHCR |
+| Orchestration | Kubernetes (k3s, on-premises), Kustomize |
+| GitOps | ArgoCD (App-of-Apps pattern) |
+| Infrastructure | Terraform (libvirt/QEMU), Ansible |
 | CI/CD | GitHub Actions |
+| Ingress / TLS | NGINX Ingress Controller, cert-manager, Let's Encrypt |
 | SAST | SonarCloud |
-| DAST | Selenium, OWASP ZAP |
-| Monitoring | Prometheus, Grafana |
-| Security | Trivy, Gitleaks, OWASP Dependency-Check |
-| Public URL | Cloudflare Tunnel |
+| DAST | OWASP ZAP |
+| Monitoring | Prometheus, Grafana (kube-prometheus-stack) |
+| Security Scanning | Trivy, Gitleaks, OWASP Dependency-Check |
