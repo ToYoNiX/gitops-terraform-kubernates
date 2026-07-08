@@ -14,6 +14,13 @@ spec:
     helm:
       values: |
         installCRDs: true
+        # Route the DNS-01 propagation self-check through cluster CoreDNS
+        # (which resolves duckdns.org over DoT) instead of querying the
+        # authoritative nameservers directly — the ISP drops TXT queries
+        # on port 53.
+        extraArgs:
+          - --dns01-recursive-nameservers-only
+          - --dns01-recursive-nameservers=10.43.0.10:53
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

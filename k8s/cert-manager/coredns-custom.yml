@@ -1,0 +1,17 @@
+# Resolve duckdns.org over DNS-over-TLS (port 853) — the local ISP silently
+# drops plain port-53 TXT queries, which breaks cert-manager's DNS-01
+# propagation self-check. k3s CoreDNS imports /etc/coredns/custom/*.server
+# from this ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  duckdns.server: |
+    duckdns.org:53 {
+        forward . tls://1.1.1.1 tls://1.0.0.1 {
+            tls_servername cloudflare-dns.com
+        }
+        cache 30
+    }
