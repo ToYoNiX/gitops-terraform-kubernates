@@ -46,47 +46,9 @@ Everything lives in this monorepo: application source code, Terraform modules, K
 
 ## System Architecture
 
-```text
-Developer Push (main / dev)
-         │
-         ▼
- GitHub Actions CI/CD
-  ├── Secrets Scan (Gitleaks)
-  ├── SAST (SonarCloud)
-  ├── Dependency Audit (OWASP, npm audit)
-  ├── Container Build + Trivy Scan
-  └── Push to GHCR
-       ├── main  →  :prod tag
-       └── dev   →  :dev  tag
-         │
-         ▼
-      ArgoCD (GitOps)
-      watches k8s/ on each branch
-         │
-         ├──────────────────────────────────┐
-         ▼                                  ▼
-  On-Premises k3s Cluster (QEMU/KVM via Terraform + Ansible)
-  ┌────────────────────────────────────────────────────────┐
-  │                                                        │
-  │  namespace: prod               namespace: dev          │
-  │  ┌─────────────────────┐       ┌──────────────────┐   │
-  │  │ Frontend (Nginx)    │       │ Frontend (Nginx) │   │
-  │  │ Backend (Spring)    │       │ Backend (Spring) │   │
-  │  │ PostgreSQL          │       │ PostgreSQL       │   │
-  │  │ NGINX Ingress + TLS │       │ NGINX Ingress    │   │
-  │  └─────────────────────┘       └──────────────────┘   │
-  │                                                        │
-  │  namespace: monitoring                                 │
-  │  ┌────────────────────────────────────────────────┐   │
-  │  │  Prometheus + Grafana (kube-prometheus-stack)  │   │
-  │  │  ServiceMonitors for prod + dev backends       │   │
-  │  └────────────────────────────────────────────────┘   │
-  │                                                        │
-  └────────────────────────────────────────────────────────┘
-         │
-         ▼
-  DAST (OWASP ZAP)
-```
+![Architecture diagram — CI/CD pipeline, GitOps flow, and infrastructure provisioning](static/architecture.svg)
+
+The flow, top to bottom: every push runs the security-gated CI pipeline and (on `main`/`dev`) publishes `:prod`/`:dev` images to GHCR; ArgoCD pulls manifests from git and images from GHCR into the k3s cluster; the cluster itself was provisioned once by Terraform (QEMU/KVM VMs) and Ansible, which bootstraps ArgoCD via Helm.
 
 ---
 
@@ -165,7 +127,7 @@ main branch push
 │   │   ├── prod/         # namespace: prod, image: :prod, TLS ingress
 │   │   └── dev/          # namespace: dev, image: :dev, single instance
 │   ├── cert-manager/     # ClusterIssuer + wildcard Certificate
-│   └── monitoring-extras/# ServiceMonitors for prod + dev
+│   └── monitoring-extras/# ServiceMonitors (prod + dev) + Grafana dashboard ConfigMap
 ├── monitoring/           # Docker Compose monitoring stack (local dev)
 │   ├── docker/
 │   ├── helm/
@@ -176,76 +138,16 @@ main branch push
 
 ---
 
-## Running Locally
+## Setup
 
-Prerequisites: Docker and Docker Compose installed.
+All setup instructions — local development, host prerequisites, Terraform VM provisioning, Ansible cluster install, DuckDNS/TLS bootstrap, verification, and teardown — live in **[SETUP.md](SETUP.md)**, including every gotcha we hit along the way. Lessons learned and day-2 operations one-liners are in [NOTES.md](NOTES.md).
+
+Quick taste (local dev only):
 
 ```bash
 git clone https://github.com/ToYoNiX/gitops-terraform-kubernates.git
 cd gitops-terraform-kubernates
 docker compose up --build
-```
-
-| Service | URL |
-| --- | --- |
-| Frontend | <http://localhost> |
-| Backend API | <http://localhost:8080> |
-| Swagger UI | <http://localhost:8080/swagger-ui.html> |
-| Prometheus | <http://localhost:9090> |
-| Grafana | <http://localhost:3000> |
-
-Default login: `admin` / `admin`
-
----
-
-## Deploying the Cluster
-
-### 1. Provision VMs with Terraform
-
-```bash
-cd terraform
-terraform init
-terraform apply -var="ssh_public_key_path=~/.ssh/depi_k3s.pub"
-```
-
-Creates 3 QEMU/KVM VMs: `k3s-master` (10.17.3.10), `k3s-agent-1` (10.17.3.11), `k3s-agent-2` (10.17.3.12).
-
-See [NOTES.md](NOTES.md) for prerequisites and gotchas.
-
-### 2. Install k3s + ArgoCD with Ansible
-
-```bash
-cd ansible
-ansible-playbook playbooks/site.yml
-```
-
-This installs k3s on all nodes, joins the agents, installs ArgoCD via Helm, and registers the root ArgoCD app pointing at `k8s/apps/`.
-
-### 3. Bootstrap the DuckDNS token (once)
-
-Before ArgoCD syncs cert-manager, create the token secret on the cluster manually — it must never be committed to git:
-
-```bash
-kubectl create secret generic duckdns-token \
-  --from-literal=token=<your-duckdns-token> \
-  --namespace cert-manager
-```
-
-### 4. ArgoCD takes over
-
-Once the root app is registered, ArgoCD deploys everything automatically:
-
-- NGINX ingress controller
-- cert-manager + DuckDNS webhook + wildcard TLS certificate
-- `prod` namespace (from `main` branch)
-- `dev` namespace (from `dev` branch, once it exists)
-- kube-prometheus-stack in `monitoring` namespace
-
-Access ArgoCD UI at `http://10.17.3.10:30080` — get the initial password with:
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
 ```
 
 ---

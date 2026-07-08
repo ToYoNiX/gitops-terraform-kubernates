@@ -4,59 +4,79 @@
 
 ## Cluster Operations — Useful Commands
 
-All commands run on the master node via SSH or locally if kubeconfig is at `~/.kube/config`.
+Every command below is a one-liner that runs from your **local machine** — just copy, paste, done. They all SSH into the master (`10.17.3.10`) under the hood.
 
 ```bash
-# SSH into master
+# Interactive shell on the master (when you need to poke around)
 ssh -i ~/.ssh/depi_k3s depi@10.17.3.10
 ```
 
-### ArgoCD — check all app sync and health status
+### ArgoCD — all app sync and health status
 
 ```bash
-sudo k3s kubectl get applications -n argocd
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get applications -n argocd"
 ```
 
-### Check pods across all app namespaces
+### Pods across all app namespaces
 
 ```bash
-sudo k3s kubectl get pods -n prod
-sudo k3s kubectl get pods -n dev
-sudo k3s kubectl get pods -n monitoring
-sudo k3s kubectl get pods -n cert-manager
-sudo k3s kubectl get pods -n ingress-nginx
+# Everything at once
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get pods -A"
+
+# Just the app + infra namespaces
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "for ns in prod dev monitoring cert-manager ingress-nginx argocd; do echo \"== \$ns ==\"; sudo k3s kubectl get pods -n \$ns; done"
 ```
 
-### Check all ingresses (confirms domains and IPs)
+### Nodes, ingresses, services
 
 ```bash
-sudo k3s kubectl get ingress -A
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get nodes -o wide"
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get ingress -A"
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get svc -A"
 ```
 
-### Check all nodes and their status
+### Logs / describe for a specific pod
 
 ```bash
-sudo k3s kubectl get nodes -o wide
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl logs -n prod <pod-name> --tail=100"
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl logs -n prod <pod-name> --previous"   # if pod crashed
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl describe pod -n prod <pod-name>"      # ImagePullBackOff etc.
 ```
 
-### Check logs for a specific pod
+### TLS — certificates and ACME challenges
 
 ```bash
-sudo k3s kubectl logs -n prod <pod-name>
-sudo k3s kubectl logs -n prod <pod-name> --previous   # if pod crashed
+# Certificate + challenge status in one shot
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get certificate,challenge -A"
+
+# Why is a challenge stuck?
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl describe challenge -n cert-manager | grep -E 'Domain:|State:|Reason:'"
+
+# Nudge: delete stuck challenges — cert-manager recreates them immediately
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl delete challenge -n cert-manager --all"
+
+# What cert is actually being served? (should say Let's Encrypt, not Fake Certificate)
+echo | openssl s_client -connect 10.17.3.10:443 -servername prod-devops-depi.duckdns.org 2>/dev/null | openssl x509 -noout -issuer -enddate
 ```
 
-### Describe a pod (useful for ImagePullBackOff or crash debugging)
+### Prometheus — is the backend actually being scraped?
 
 ```bash
-sudo k3s kubectl describe pod -n prod <pod-name>
+# Count inventory targets (expect 2: prod + dev). 0 means ServiceMonitor matches nothing.
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "PROM=\$(sudo k3s kubectl get svc -n monitoring monitoring-kube-prometheus-prometheus -o jsonpath='{.spec.clusterIP}'); curl -s http://\$PROM:9090/api/v1/targets | grep -o 'inventory-backend-[a-z]*' | sort | uniq -c"
+
+# Confirm the Service carries the label the ServiceMonitors select on
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl get svc backend -n prod --show-labels"
 ```
 
-### Check certificate status (TLS)
+### Grafana
 
 ```bash
-sudo k3s kubectl get certificate -n cert-manager
-sudo k3s kubectl describe certificate wildcard-devops-depi -n cert-manager
+# Restart Grafana (no persistence — fresh DB, reprovisions everything from files)
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl rollout restart deployment monitoring-grafana -n monitoring && sudo k3s kubectl rollout status deployment monitoring-grafana -n monitoring --timeout=180s"
+
+# Check dashboard provisioning errors
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "POD=\$(sudo k3s kubectl get pod -n monitoring -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}'); sudo k3s kubectl logs -n monitoring \$POD -c grafana --tail=100 | grep -i 'provisioning\|failed to save'"
 ```
 
 ### Port-forward monitoring services (if ingress not available)
@@ -72,20 +92,19 @@ ssh -i ~/.ssh/depi_k3s -L 9090:10.43.253.255:9090 depi@10.17.3.10 -N &
 ssh -i ~/.ssh/depi_k3s -L 9093:10.43.68.58:9093 depi@10.17.3.10 -N &
 ```
 
-### Access ArgoCD UI
+### ArgoCD UI + password
 
 ```bash
-# http://10.17.3.10:30080  (admin / get password below)
-sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
+# UI at http://10.17.3.10:30080 (admin / password below)
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo"
 ```
 
-### Force ArgoCD to resync an app immediately
+### Force ArgoCD to refresh + resync an app immediately
+
+`kubectl` has no `app sync` subcommand (that's the `argocd` CLI) — trigger a hard refresh via annotation instead; auto-sync then applies any diff:
 
 ```bash
-sudo k3s kubectl -n argocd app sync <app-name>
-# e.g.
-sudo k3s kubectl -n argocd app sync inventory-prod
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl -n argocd annotate application inventory-prod argocd.argoproj.io/refresh=hard --overwrite"
 ```
 
 ---
@@ -232,6 +251,8 @@ metadata:
 ```
 
 **Related nuisance — "unsaved changes" prompt on a provisioned dashboard:** if the provisioned JSON uses an old schema (the original #4701 export was `schemaVersion: 14`), Grafana migrates it in the browser on every load, which marks the dashboard dirty — leaving it triggers a save prompt that then fails with *"cannot be saved because it has been provisioned"*. Fix: open the dashboard, use **Save → Save JSON to file** to get the schema-current JSON (`schemaVersion: 39` on Grafana 10.4.1), and put that into the ConfigMap so no migration happens on load.
+
+**Gotcha when changing a provisioned dashboard's `uid`:** Grafana 10.4 cannot switch a provisioned dashboard's uid in place. After we changed the uid to a stable `jvm-micrometer`, the sidecar wrote the new file fine, but Grafana's provisioner errored every 30s with `failed to save dashboard ... could not resolve dashboards:uid:jvm-micrometer: Dashboard not found` and kept serving the old dashboard. Since Grafana runs without persistence (sqlite lives in the container), the fix is simply restarting the pod — fresh DB, everything reprovisions cleanly from the files (see the Grafana restart one-liner in the commands section). Side effects: the old dashboard URL dies, and any UI-created state (manual dashboards, stars, changed admin password) is wiped.
 
 Two related non-issues worth knowing:
 
