@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEPI Final Project — Automated DevOps Deployment Pipeline</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.9;
+    padding: 32px 16px;
+  }
+  .card {
+    max-width: 860px;
+    margin: 0 auto 24px auto;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 36px;
+  }
+  h1 { font-size: 1.45rem; color: #f1f5f9; margin-bottom: 8px; line-height: 1.5; }
+  h2 { font-size: 1.2rem; color: #f1f5f9; margin: 0 0 16px 0; }
+  .depi { color: #7dd3fc; font-weight: 600; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 4px 0; font-size: 0.98rem; }
+  th, td { border: 1px solid #334155; padding: 8px 12px; text-align: left; }
+  th { background: #0f172a; color: #7dd3fc; }
+  td a { color: #7dd3fc; text-decoration: none; word-break: break-all; }
+  .meta td:first-child { font-weight: 700; width: 130px; color: #cbd5e1; }
+  hr { border: none; border-top: 1px solid #334155; margin: 24px 0; }
+  [dir="rtl"] p { margin-bottom: 14px; font-size: 1.05rem; }
+  .note {
+    background: #0f172a;
+    border-right: 4px solid #f59e0b;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  code { direction: ltr; unicode-bidi: embed; background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.95em; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 8px; }
+  .gallery figure { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px; }
+  .gallery img { width: 100%; border-radius: 6px; display: block; }
+  .gallery figcaption { font-size: 0.85rem; color: #94a3b8; margin-top: 8px; text-align: center; }
+  .footer { max-width: 860px; margin: 0 auto; text-align: center; font-size: 0.9rem; color: #94a3b8; padding: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ======== English header: project + team ======== -->
+<div class="card" dir="ltr">
+  <h1>Automated DevOps Deployment Pipeline Using GitHub Actions, Terraform, Ansible, Kubernetes, and Prometheus</h1>
+  <div class="depi">Digital Egypt Pioneers Initiative (DEPI)</div>
+
+  <table class="meta">
+    <tr><td>Instructor</td><td>Eng. Mohamed Atef</td></tr>
+    <tr><td>Group</td><td>GIZ4_SWD1_S1</td></tr>
+    <tr><td>Repo</td><td><a href="https://github.com/Mohammed-Eissa/gitops-terraform-kubernates">github.com/Mohammed-Eissa/gitops-terraform-kubernates</a></td></tr>
+  </table>
+
+  <hr>
+
+  <h2>Team</h2>
+  <table>
+    <tr><th>Name</th><th>ID</th><th>Email</th></tr>
+    <tr><td>Assem Mohamed Saad <em>(Leader)</em></td><td>21127219</td><td><a href="mailto:toyonix.assemmohamed.2005@gmail.com">toyonix.assemmohamed.2005@gmail.com</a></td></tr>
+    <tr><td>Abdulrahman Aymen Mohamed</td><td>21122155</td><td><a href="mailto:abdulrahmanaymen90@gmail.com">abdulrahmanaymen90@gmail.com</a></td></tr>
+    <tr><td>Khaled Mohamed Sayed</td><td>21131090</td><td><a href="mailto:khaledkomy260@gmail.com">khaledkomy260@gmail.com</a></td></tr>
+    <tr><td>Mohamed Mahmoud Sayed</td><td>21039179</td><td><a href="mailto:mohamedeissa615@gmail.com">mohamedeissa615@gmail.com</a></td></tr>
+    <tr><td>Adam Kamal Metwaly</td><td>21125121</td><td><a href="mailto:adaam.kammal@gmail.com">adaam.kammal@gmail.com</a></td></tr>
+    <tr><td>Adham Alaa Abdulraheem</td><td>21010130</td><td><a href="mailto:Adhamzahranil123@gmail.com">Adhamzahranil123@gmail.com</a></td></tr>
+    <tr><td>Ahmed Mohamed Abdelaziz Matter</td><td>21008261</td><td><a href="mailto:amatter705@gmail.com">amatter705@gmail.com</a></td></tr>
+  </table>
+</div>
+
+<!-- ======== Arabic message: why no public URL ======== -->
+<div class="card" dir="rtl">
+  <h2>السلام عليكم</h2>
+  <p>تحية طيبة وبعد..</p>
+  <p>
+    نحن في <code>DevOps Track</code> ومشروعنا يوضح الأدوات الخاصة والأتمتة والـ
+    <code>deployment</code> وليس له علاقة بالـ <code>development</code>،
+    وهذه الصفحة توضح لماذا لا يوجد <code>Public URL</code>.
+  </p>
+  <p>
+    نظراً لأننا ركزنا على الـ <code>on-prem</code> وليس الكلاود — حيث استخدمنا
+    <code>Terraform</code> مع <code>QEMU</code> و <code>libvirt</code> على
+    <code>local cluster</code> — كان أمامنا حلان لإتاحة التطبيق للعامة:
+  </p>
+  <div class="note">
+    <p>
+      <strong>الأول:</strong> عمل <code>Port Forwarding</code> من الراوتر واستخدام الـ
+      <code>Public IP</code> — وللأسف هو غير متاح.
+    </p>
+    <p>
+      <strong>الثاني:</strong> استخدام تقنية <code>Tunneling</code> مثل
+      <code>Cloudflare Tunnel</code> — ولكن هذا أيضاً لديه مشاكل: أولاً غير
+      professional وحل تسليكي وليس حلاً نهائياً.
+    </p>
+  </div>
+  <p>
+    السيستم يعمل بشكل لائق <code>locally</code> على الـ <code>local cluster</code>
+    كما هو موضح بالفيديو المرفق مع التسليم والـ screenshots بالأسفل.
+  </p>
+  <p><strong>شكراً لتفهم سيادتكم.</strong></p>
+</div>
+
+<!-- ======== Architecture ======== -->
+<div class="card" dir="ltr">
+  <h2>🗺️ System Architecture</h2>
+  <a href="architecture.svg" target="_blank" title="Open full size">
+    <img src="architecture.svg" alt="Architecture diagram — CI/CD pipeline, GitOps flow, and infrastructure provisioning"
+         style="width:100%; border-radius:12px; border:1px solid #334155; margin-top:8px; display:block;">
+  </a>
+</div>
+
+<!-- ======== Screenshots ======== -->
+<div class="card" dir="ltr">
+  <h2>📸 Screenshots</h2>
+  <div class="gallery">
+    <figure>
+      <img src="local-cluster.png" alt="Three k3s VMs running under QEMU/KVM">
+      <figcaption>The on-prem cluster — k3s-master + 2 agents (QEMU/KVM, provisioned by Terraform)</figcaption>
+    </figure>
+    <figure>
+      <img src="argocd.png" alt="ArgoCD applications — all Synced and Healthy">
+      <figcaption>ArgoCD App-of-Apps — all applications Synced &amp; Healthy</figcaption>
+    </figure>
+    <figure>
+      <img src="ssl-prod-domain.png" alt="Production app with valid Let's Encrypt certificate">
+      <figcaption>Production — prod-devops-depi.duckdns.org with Let's Encrypt TLS</figcaption>
+    </figure>
+    <figure>
+      <img src="ssl-dev-domain.png" alt="Dev app with valid Let's Encrypt certificate">
+      <figcaption>Dev — dev-devops-depi.duckdns.org with Let's Encrypt TLS</figcaption>
+    </figure>
+    <figure>
+      <img src="ssl-monitoring-domain.png" alt="Grafana with valid Let's Encrypt certificate">
+      <figcaption>Monitoring — monitoring-devops-depi.duckdns.org with Let's Encrypt TLS</figcaption>
+    </figure>
+    <figure>
+      <img src="grafana-dashboards.png" alt="Grafana provisioned dashboards list">
+      <figcaption>Grafana — provisioned dashboards (kube-prometheus-stack + custom JVM)</figcaption>
+    </figure>
+    <figure>
+      <img src="grafana-jvm-dashboard.png" alt="Grafana JVM Micrometer dashboard with live data">
+      <figcaption>Grafana — JVM (Micrometer) dashboard, live backend metrics</figcaption>
+    </figure>
+    <figure>
+      <img src="discord-alerts.png" alt="Alertmanager notifications in Discord">
+      <figcaption>Alertmanager → Discord notifications (firing + resolved)</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="footer">
+  DEPI Final Project — GIZ4_SWD1_S1 —
+  <a href="https://github.com/ToYoNiX/gitops-terraform-kubernates" style="color:#7dd3fc">source &amp; documentation</a>
+</div>
+
+</body>
+</html>
