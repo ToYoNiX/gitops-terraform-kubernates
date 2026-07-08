@@ -112,6 +112,24 @@ Both should return `10.17.3.10`. This works for any machine on the same local ne
 
 ---
 
+## Cluster URLs
+
+| Service | URL | Credentials |
+| --- | --- | --- |
+| Production app | <http://prod-devops-depi.duckdns.org> | admin / admin |
+| Dev app | <http://dev-devops-depi.duckdns.org> | admin / admin |
+| Grafana | <http://monitoring-devops-depi.duckdns.org> | admin / (secret below) |
+| ArgoCD UI | <http://10.17.3.10:30080> | admin / (retrieve below) |
+
+Get ArgoCD initial password:
+
+```bash
+sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+---
+
 ## Cluster Bootstrap — DuckDNS Token Secret
 
 The DuckDNS token used by cert-manager for the DNS-01 challenge must **never be committed to git**. After running `ansible-playbook playbooks/site.yml` and before cert-manager tries to issue the certificate, create the secret manually on the cluster:

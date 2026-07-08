@@ -15,6 +15,13 @@ spec:
       values: |
         grafana:
           adminPassword: "admin"
+          additionalDataSources:
+            - name: Prometheus
+              type: prometheus
+              uid: prometheus
+              url: http://prometheus-operated.monitoring.svc:9090
+              isDefault: true
+              editable: false
           ingress:
             enabled: true
             ingressClassName: nginx
