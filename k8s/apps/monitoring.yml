@@ -79,10 +79,17 @@ spec:
                     - alertname = "Watchdog"
             receivers:
               - name: "null"
+              # Discord via its Slack-compatible endpoint: the secret must hold
+              # the webhook URL with "/slack" appended. A native discord_configs
+              # receiver cannot be used with a *_file field — prometheus-operator
+              # parses the raw config into internal types that only accept an
+              # inline webhook_url (true even on operator main as of 2026-07),
+              # and an inline URL in git is a leaked credential.
               - name: discord
-                discord_configs:
-                  - webhook_url_file: /etc/alertmanager/secrets/alertmanager-discord-webhook/webhook-url
+                slack_configs:
+                  - api_url_file: /etc/alertmanager/secrets/alertmanager-discord-webhook/webhook-url
                     send_resolved: true
+                    title: '{{ .Status | toUpper }} — {{ .CommonLabels.alertname }}'
             inhibit_rules:
               - target_matchers: [severity =~ warning|info]
                 source_matchers: [severity = critical]

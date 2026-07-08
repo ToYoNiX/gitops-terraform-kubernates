@@ -220,10 +220,10 @@ Alertmanager routes all alerts to a Discord channel. Like the DuckDNS token, the
 3. **New Webhook** → name it (e.g. `alertmanager`) → select the `#alerts` channel
 4. **Copy Webhook URL** — it looks like `https://discord.com/api/webhooks/<id>/<token>`
 
-**Put it on the cluster** (from your local machine — keep the single quotes, the URL contains shell-hostile characters):
+**Put it on the cluster** (from your local machine — keep the single quotes, the URL contains shell-hostile characters). Note the **`/slack` suffix** appended to the URL: Alertmanager talks to Discord through its Slack-compatible endpoint, because prometheus-operator rejects file-based URLs on the native Discord receiver (full story in NOTES.md):
 
 ```bash
-ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>' --namespace monitoring"
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>/slack' --namespace monitoring"
 ```
 
 Verify it landed:

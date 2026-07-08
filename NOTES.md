@@ -176,13 +176,15 @@ Alertmanager sends notifications to Discord. The webhook URL is a **bearer crede
 
 Get the URL: Discord server → **Server Settings → Integrations → Webhooks → New Webhook** → pick the alerts channel → **Copy Webhook URL**.
 
+**Why the `/slack` suffix and a `slack_configs` receiver?** prometheus-operator parses the raw Alertmanager config into its own internal types before generating the final secret, and those types only accept an inline `webhook_url` for the native Discord receiver — `webhook_url_file` is rejected with `failed to initialize from secret: no discord webhook URL provided` (still unsupported on operator main as of July 2026). An inline URL in git is a leaked credential, so we use the Slack receiver instead (whose `api_url_file` **is** supported by the operator) pointed at Discord's Slack-compatible endpoint: the webhook URL with `/slack` appended.
+
 Create the secret from your local machine (single quotes matter — the URL contains shell-hostile characters):
 
 ```bash
-ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>' --namespace monitoring"
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10 "sudo k3s kubectl create secret generic alertmanager-discord-webhook --from-literal=webhook-url='<paste-webhook-url>/slack' --namespace monitoring"
 ```
 
-The Alertmanager pod mounts this secret (`alertmanagerSpec.secrets` + `webhook_url_file`), so the pod stays `Pending` until it exists. If the URL ever leaks: delete the webhook in Discord, create a fresh one, then recreate the secret — Alertmanager picks up the new file within a couple of minutes.
+The Alertmanager pod mounts this secret (`alertmanagerSpec.secrets` + `api_url_file`), so the pod stays `Pending` until it exists. If the URL ever leaks: delete the webhook in Discord, create a fresh one, then recreate the secret — Alertmanager picks up the new file within a couple of minutes.
 
 ---
 
@@ -270,7 +272,7 @@ metadata:
 
 **Gotcha when changing a provisioned dashboard's `uid`:** Grafana 10.4 cannot switch a provisioned dashboard's uid in place. After we changed the uid to a stable `jvm-micrometer`, the sidecar wrote the new file fine, but Grafana's provisioner errored every 30s with `failed to save dashboard ... could not resolve dashboards:uid:jvm-micrometer: Dashboard not found` and kept serving the old dashboard. Since Grafana runs without persistence (sqlite lives in the container), the fix is simply restarting the pod — fresh DB, everything reprovisions cleanly from the files (see the Grafana restart one-liner in the commands section). Side effects: the old dashboard URL dies, and any UI-created state (manual dashboards, stars, changed admin password) is wiped.
 
-**Alerting on k3s — the default kube-prometheus-stack alerts lie:** `KubeSchedulerDown`, `KubeControllerManagerDown`, and `KubeProxyDown` fire *forever* on k3s because those components run inside the single k3s binary and expose no separate metrics endpoints (and there is no etcd at all). Disable their monitors in the chart values (`kubeScheduler.enabled: false`, etc.) before wiring any notification receiver, or the channel drowns in permanent critical noise on day one. Two more traps: `Watchdog` is an *intentional* always-firing heartbeat — route it to a `"null"` receiver, never to a human channel; and a notification webhook URL (Discord/Slack) is a bearer credential — bootstrap it as a manual secret like the DuckDNS token, mounted via `alertmanagerSpec.secrets` + `webhook_url_file`, never committed to git.
+**Alerting on k3s — the default kube-prometheus-stack alerts lie:** `KubeSchedulerDown`, `KubeControllerManagerDown`, and `KubeProxyDown` fire *forever* on k3s because those components run inside the single k3s binary and expose no separate metrics endpoints (and there is no etcd at all). Disable their monitors in the chart values (`kubeScheduler.enabled: false`, etc.) before wiring any notification receiver, or the channel drowns in permanent critical noise on day one. Two more traps: `Watchdog` is an *intentional* always-firing heartbeat — route it to a `"null"` receiver, never to a human channel; and a notification webhook URL (Discord/Slack) is a bearer credential — bootstrap it as a manual secret like the DuckDNS token, mounted via `alertmanagerSpec.secrets` + `api_url_file`, never committed to git (see the bootstrap section for why the Discord receiver goes through the Slack-compatible endpoint).
 
 Two related non-issues worth knowing:
 
