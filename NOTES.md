@@ -2,6 +2,94 @@
 
 ---
 
+## Cluster Operations — Useful Commands
+
+All commands run on the master node via SSH or locally if kubeconfig is at `~/.kube/config`.
+
+```bash
+# SSH into master
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10
+```
+
+### ArgoCD — check all app sync and health status
+
+```bash
+sudo k3s kubectl get applications -n argocd
+```
+
+### Check pods across all app namespaces
+
+```bash
+sudo k3s kubectl get pods -n prod
+sudo k3s kubectl get pods -n dev
+sudo k3s kubectl get pods -n monitoring
+sudo k3s kubectl get pods -n cert-manager
+sudo k3s kubectl get pods -n ingress-nginx
+```
+
+### Check all ingresses (confirms domains and IPs)
+
+```bash
+sudo k3s kubectl get ingress -A
+```
+
+### Check all nodes and their status
+
+```bash
+sudo k3s kubectl get nodes -o wide
+```
+
+### Check logs for a specific pod
+
+```bash
+sudo k3s kubectl logs -n prod <pod-name>
+sudo k3s kubectl logs -n prod <pod-name> --previous   # if pod crashed
+```
+
+### Describe a pod (useful for ImagePullBackOff or crash debugging)
+
+```bash
+sudo k3s kubectl describe pod -n prod <pod-name>
+```
+
+### Check certificate status (TLS)
+
+```bash
+sudo k3s kubectl get certificate -n cert-manager
+sudo k3s kubectl describe certificate wildcard-devops-depi -n cert-manager
+```
+
+### Port-forward monitoring services (if ingress not available)
+
+```bash
+# Grafana — http://localhost:3000
+ssh -i ~/.ssh/depi_k3s -L 3000:10.43.220.136:80 depi@10.17.3.10 -N &
+
+# Prometheus — http://localhost:9090
+ssh -i ~/.ssh/depi_k3s -L 9090:10.43.253.255:9090 depi@10.17.3.10 -N &
+
+# Alertmanager — http://localhost:9093
+ssh -i ~/.ssh/depi_k3s -L 9093:10.43.68.58:9093 depi@10.17.3.10 -N &
+```
+
+### Access ArgoCD UI
+
+```bash
+# http://10.17.3.10:30080  (admin / get password below)
+sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+### Force ArgoCD to resync an app immediately
+
+```bash
+sudo k3s kubectl -n argocd app sync <app-name>
+# e.g.
+sudo k3s kubectl -n argocd app sync inventory-prod
+```
+
+---
+
 ## Cluster Bootstrap — DuckDNS Setup
 
 Register two subdomains on [duckdns.org](https://www.duckdns.org) and set both to the ingress controller's external IP (`10.17.3.10`):
