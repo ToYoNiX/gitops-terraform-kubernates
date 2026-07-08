@@ -2,6 +2,49 @@
 
 ---
 
+## Cluster Bootstrap — DuckDNS Setup
+
+Register two subdomains on [duckdns.org](https://www.duckdns.org) and set both to the ingress controller's external IP (`10.17.3.10`):
+
+| Subdomain | IP |
+| --- | --- |
+| `prod-devops-depi` | `10.17.3.10` |
+| `dev-devops-depi` | `10.17.3.10` |
+
+The ingress-nginx controller gets `10.17.3.10` as its external IP via k3s's built-in ServiceLB. Both domains point to the same IP — NGINX routes traffic to the correct namespace (`prod` or `dev`) based on the `Host` header.
+
+Verify with:
+
+```bash
+nslookup prod-devops-depi.duckdns.org
+nslookup dev-devops-depi.duckdns.org
+```
+
+Both should return `10.17.3.10`. This works for any machine on the same local network. No port forwarding or public IP needed for local access.
+
+---
+
+## Cluster Bootstrap — DuckDNS Token Secret
+
+The DuckDNS token used by cert-manager for the DNS-01 challenge must **never be committed to git**. After running `ansible-playbook playbooks/site.yml` and before cert-manager tries to issue the certificate, create the secret manually on the cluster:
+
+```bash
+# From your local machine (kubeconfig already at ~/.kube/config after Ansible run)
+kubectl create secret generic duckdns-token \
+  --from-literal=token=<your-duckdns-token> \
+  --namespace cert-manager
+
+# Or from the master node directly
+ssh -i ~/.ssh/depi_k3s depi@10.17.3.10
+sudo k3s kubectl create secret generic duckdns-token \
+  --from-literal=token=<your-duckdns-token> \
+  --namespace cert-manager
+```
+
+Your DuckDNS token is shown at the top of the page after logging in at [duckdns.org](https://www.duckdns.org). Once the secret exists, cert-manager picks it up automatically and completes the DNS-01 challenge to issue the TLS certificate.
+
+---
+
 ## GitHub Actions / GHCR Gotchas
 
 **GHCR image tags must be fully lowercase** — `docker/build-push-action` will fail with `repository name must be lowercase` if `github.repository_owner` contains uppercase letters (e.g. `ToYoNiX`). GitHub Actions expressions do not support a `| lower` filter, so lowercase it in a shell step instead:
