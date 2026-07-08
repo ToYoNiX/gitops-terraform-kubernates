@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: backend
   namespace: inventory
+  labels:
+    app: inventory-backend
 spec:
   selector:
     app: inventory-backend
